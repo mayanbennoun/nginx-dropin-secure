@@ -1,0 +1,36 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://nginx-patched-build/vex.json",
+  "author": "mayanbennoun",
+  "timestamp": "2026-05-30T00:00:00Z",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {
+        "@id": "https://www.cve.org/CVERecord?id=CVE-2026-9256",
+        "name": "CVE-2026-9256",
+        "description": "Heap buffer overflow in nginx rewrite module when a replacement string with overlapping captures but no variables is used with redirect or query-string arguments"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/nginx-patched-build@1.25.5",
+          "subcomponents": [
+            {
+              "@id": "pkg:deb/debian/nginx@1.25.5-1~bookworm" 
+            },
+            {
+              "@id": "pkg:deb/debian/nginx@1.25.5-1~bookworm?arch=amd64&distro=debian-12"
+            },
+            {
+              "@id": "pkg:deb/debian/nginx@1.25.5-1~bookworm?arch=amd64&upstream=nginx"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "justification": "inline_mitigation_already_exist",
+      "action_statement": "Applied upstream nginx mainline commit ca4f92a (Roman Arutyunyan, nginx.com) as build/patches/CVE-2026-9256.patch to the nginx 1.25.5 source tree before compilation. The patch fixes ngx_http_script_regex_start_code() to iterate over each capture group individually when computing escape overhead, preventing the under-allocation that caused the heap overflow.",
+      "action_statement_timestamp": "2026-05-30T00:00:00Z"
+    }
+  ]
+}

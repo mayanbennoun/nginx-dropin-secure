@@ -1,8 +1,3 @@
-#
-# NOTE: THIS DOCKERFILE IS GENERATED VIA "update.sh"
-#
-# PLEASE DO NOT EDIT IT DIRECTLY.
-#
 FROM debian:bookworm-slim
 
 LABEL maintainer="NGINX Docker Maintainers <docker-maint@nginx.com>"
@@ -11,28 +6,20 @@ ENV NGINX_VERSION   1.25.5
 ENV NJS_VERSION     0.8.4
 ENV PKG_RELEASE     1~bookworm
 
+# Patched .deb built from source — CVE-2026-9256 fix applied via build/patches/
+COPY build/dist/nginx_1.25.5-1~bookworm_amd64.deb /tmp/nginx.deb
+
 RUN set -x \
 # create nginx user/group first, to be consistent throughout docker variants
     && groupadd --system --gid 101 nginx \
     && useradd --system --gid nginx --no-create-home --home /nonexistent --comment "nginx user" --shell /bin/false --uid 101 nginx \
     && apt-get update \
-    && apt-get install --no-install-recommends --no-install-suggests -y gnupg1 ca-certificates \
+    && apt-get install --no-install-recommends --no-install-suggests -y gnupg ca-certificates curl \
     && \
-    NGINX_GPGKEY=573BFD6B3D8FBC641079A6ABABF5BD827BD9BF62; \
     NGINX_GPGKEY_PATH=/usr/share/keyrings/nginx-archive-keyring.gpg; \
-    export GNUPGHOME="$(mktemp -d)"; \
-    found=''; \
-    for server in \
-        hkp://keyserver.ubuntu.com:80 \
-        pgp.mit.edu \
-    ; do \
-        echo "Fetching GPG key $NGINX_GPGKEY from $server"; \
-        gpg1 --keyserver "$server" --keyserver-options timeout=10 --recv-keys "$NGINX_GPGKEY" && found=yes && break; \
-    done; \
-    test -z "$found" && echo >&2 "error: failed to fetch GPG key $NGINX_GPGKEY" && exit 1; \
-    gpg1 --export "$NGINX_GPGKEY" > "$NGINX_GPGKEY_PATH" ; \
-    rm -rf "$GNUPGHOME"; \
-    apt-get remove --purge --auto-remove -y gnupg1 && rm -rf /var/lib/apt/lists/* \
+    curl -fsSL https://nginx.org/keys/nginx_signing.key \
+        | gpg --dearmor -o "$NGINX_GPGKEY_PATH"; \
+    apt-get remove --purge --auto-remove -y gnupg && rm -rf /var/lib/apt/lists/* \
     && dpkgArch="$(dpkg --print-architecture)" \
     && nginxPackages=" \
         nginx=${NGINX_VERSION}-${PKG_RELEASE} \
@@ -88,17 +75,19 @@ RUN set -x \
             ;; \
     esac \
     \
-    #install our package
+    # install official nginx + modules from repo first so dependencies resolve cleanly,
+    # then overwrite nginx with our patched build via dpkg
     && apt-get install --no-install-recommends --no-install-suggests -y \
-                        #our pacakage goes here                    
                         $nginxPackages \
                         gettext-base \
                         curl \
-    && apt-get remove --purge --auto-remove -y && rm -rf /var/lib/apt/lists/* /etc/apt/sources.list.d/nginx.list \
+    && dpkg -i --force-overwrite /tmp/nginx.deb \
+    && rm /tmp/nginx.deb \
+    && apt-get autoremove --purge -y && rm -rf /var/lib/apt/lists/* /etc/apt/sources.list.d/nginx.list \
     \
 # if we have leftovers from building, let's purge them (including extra, unnecessary build deps)
     && if [ -n "$tempDir" ]; then \
-        apt-get purge -y --auto-remove \
+        apt-get autoremove --purge -y \
         && rm -rf "$tempDir" /etc/apt/sources.list.d/temp.list; \
     fi \
 # forward request and error logs to docker log collector
@@ -107,11 +96,13 @@ RUN set -x \
 # create a docker-entrypoint.d directory
     && mkdir /docker-entrypoint.d
 
-COPY docker-entrypoint.sh /
-COPY 10-listen-on-ipv6-by-default.sh /docker-entrypoint.d
-COPY 15-local-resolvers.envsh /docker-entrypoint.d
-COPY 20-envsubst-on-templates.sh /docker-entrypoint.d
-COPY 30-tune-worker-processes.sh /docker-entrypoint.d
+COPY docker-entrypoint/docker-entrypoint.sh /
+COPY docker-entrypoint/10-listen-on-ipv6-by-default.sh /docker-entrypoint.d/
+COPY docker-entrypoint/15-local-resolvers.envsh /docker-entrypoint.d/
+COPY docker-entrypoint/20-envsubst-on-templates.sh /docker-entrypoint.d/
+COPY docker-entrypoint/30-tune-worker-processes.sh /docker-entrypoint.d/
+# ensure scripts are executable (files written on Windows may lack the execute bit)
+RUN chmod +x /docker-entrypoint.sh /docker-entrypoint.d/*.sh
 ENTRYPOINT ["/docker-entrypoint.sh"]
 
 EXPOSE 80

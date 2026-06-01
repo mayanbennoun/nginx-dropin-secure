@@ -7,7 +7,7 @@ __pycache__/
 
 # nginx compile / extracted upstream (from build.sh)
 objs/
-nginx-[0-9]*/
+#nginx-*/
 
 # Debian packages (if you use dpkg-buildpackage)
 *.deb
@@ -23,3 +23,4 @@ nginx-[0-9]*/
 .idea/
 .DS_Store
 Thumbs.db
+nginx-patched-build/docs/CVE-SCANNING-WORKFLOW.md
