@@ -38,7 +38,13 @@ RUN set -eux; \
 
 RUN set -eux; \
     git clone --depth 1 --branch "$PKG_OSS_REF" https://github.com/nginx/pkg-oss.git; \
-    sed -i "s/^NGINX_VERSION :=.*/NGINX_VERSION := $NGINX_VERSION/" pkg-oss/contrib/src/nginx/version
+    sed -i "s/^NGINX_VERSION :=.*/NGINX_VERSION := $NGINX_VERSION/" pkg-oss/contrib/src/nginx/version; \
+# CVE-2024-6119: force a hardened OpenSSL floor into the nginx package's runtime
+# Depends. The shlibs scanner only emits "libssl3 (>= 3.0.0)" because nginx uses
+# no newer symbols, so we add an explicit floor; dpkg keeps the stricter of the two.
+    sed -i 's/, lsb-base (>= 3.0-6)/, libssl3 (>= 3.0.14), lsb-base (>= 3.0-6)/' pkg-oss/debian/debian/nginx.control.in; \
+    grep -q 'libssl3 (>= 3.0.14)' pkg-oss/debian/debian/nginx.control.in \
+        || { echo "ERROR: libssl3 version patch not applied — CVE-2024-6119 unmitigated"; exit 1; }
 
 # pkg-oss 1.25.5-1 fetches xslscript from the old nginx Mercurial site (hg.nginx.org).
 # That site is no longer serving the archive, so restore the same script

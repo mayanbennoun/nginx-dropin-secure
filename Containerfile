@@ -81,6 +81,9 @@ RUN set -x \
                         $nginxPackages \
                         gettext-base \
                         curl \
+                        libssl3 \
+# CVE-2024-6119: the libssl3 (>= 3.0.14) floor is enforced by the .deb's
+# Depends field, which dpkg -i validates below.
     && dpkg -i --force-overwrite /tmp/nginx.deb \
     && rm /tmp/nginx.deb \
     && apt-get autoremove --purge -y && rm -rf /var/lib/apt/lists/* /etc/apt/sources.list.d/nginx.list \

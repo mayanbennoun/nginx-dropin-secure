@@ -1,19 +1,19 @@
 
 Report Summary
 
-┌────────────────────────────────────┬────────┬─────────────────┬─────────┐
-│               Target               │  Type  │ Vulnerabilities │ Secrets │
-├────────────────────────────────────┼────────┼─────────────────┼─────────┤
-│ nginx-patched:local (debian 12.14) │ debian │       254       │    -    │
-└────────────────────────────────────┴────────┴─────────────────┴─────────┘
+┌─────────────────────────────────────┬────────┬─────────────────┬─────────┐
+│               Target                │  Type  │ Vulnerabilities │ Secrets │
+├─────────────────────────────────────┼────────┼─────────────────┼─────────┤
+│ nginx-patched:1.25.5 (debian 12.14) │ debian │       254       │    -    │
+└─────────────────────────────────────┴────────┴─────────────────┴─────────┘
 Legend:
 - '-': Not scanned
 - '0': Clean (no security findings detected)
 
 
-nginx-patched:local (debian 12.14)
-==================================
-Total: 254 (UNKNOWN: 5, LOW: 140, MEDIUM: 76, HIGH: 27, CRITICAL: 6)
+nginx-patched:1.25.5 (debian 12.14)
+===================================
+Total: 254 (UNKNOWN: 5, LOW: 141, MEDIUM: 75, HIGH: 27, CRITICAL: 6)
 
 ┌────────────────────┬─────────────────────┬──────────┬──────────────┬─────────────────────────┬──────────────────┬──────────────────────────────────────────────────────────────┐
 │      Library       │    Vulnerability    │ Severity │    Status    │    Installed Version    │  Fixed Version   │                            Title                             │
@@ -451,16 +451,16 @@ Total: 254 (UNKNOWN: 5, LOW: 140, MEDIUM: 76, HIGH: 27, CRITICAL: 6)
 │                    │ CVE-2026-5260       │          │              │                         │                  │ gnutls: gnutls: Information disclosure via heap overread in  │
 │                    │                     │          │              │                         │                  │ RSA key exchange                                             │
 │                    │                     │          │              │                         │                  │ https://avd.aquasec.com/nvd/cve-2026-5260                    │
-│                    ├─────────────────────┤          │              │                         │                  ├──────────────────────────────────────────────────────────────┤
-│                    │ CVE-2026-5419       │          │              │                         │                  │ The PKCS#7 padding check performed during decryption was not │
-│                    │                     │          │              │                         │                  │ constant-time, potentially leaking...                        │
-│                    │                     │          │              │                         │                  │ https://avd.aquasec.com/nvd/cve-2026-5419                    │
 │                    ├─────────────────────┼──────────┼──────────────┤                         ├──────────────────┼──────────────────────────────────────────────────────────────┤
 │                    │ CVE-2011-3389       │ LOW      │ affected     │                         │                  │ HTTPS: block-wise chosen-plaintext attack against SSL/TLS    │
 │                    │                     │          │              │                         │                  │ (BEAST)                                                      │
 │                    │                     │          │              │                         │                  │ https://avd.aquasec.com/nvd/cve-2011-3389                    │
-├────────────────────┼─────────────────────┤          │              ├─────────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
-│ libgssapi-krb5-2   │ CVE-2018-5709       │          │              │ 1.20.1-2+deb12u5        │                  │ krb5: integer overflow in dbentry->n_key_data in             │
+│                    ├─────────────────────┤          ├──────────────┤                         ├──────────────────┼──────────────────────────────────────────────────────────────┤
+│                    │ CVE-2026-5419       │          │ fixed        │                         │ 3.7.9-2+deb12u7  │ guntls: gnutls: Information disclosure via timing            │
+│                    │                     │          │              │                         │                  │ side-channel in PKCS#7 padding removal                       │
+│                    │                     │          │              │                         │                  │ https://avd.aquasec.com/nvd/cve-2026-5419                    │
+├────────────────────┼─────────────────────┤          ├──────────────┼─────────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ libgssapi-krb5-2   │ CVE-2018-5709       │          │ affected     │ 1.20.1-2+deb12u5        │                  │ krb5: integer overflow in dbentry->n_key_data in             │
 │                    │                     │          │              │                         │                  │ kadmin/dbutil/dump.c                                         │
 │                    │                     │          │              │                         │                  │ https://avd.aquasec.com/nvd/cve-2018-5709                    │
 │                    ├─────────────────────┤          │              │                         ├──────────────────┼──────────────────────────────────────────────────────────────┤
