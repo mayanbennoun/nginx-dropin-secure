@@ -1,0 +1,26 @@
+# Python (test/)
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# nginx compile / extracted upstream (from build.sh)
+objs/
+#nginx-*/
+
+# Debian packages (if you use dpkg-buildpackage)
+*.deb
+*.buildinfo
+*.changes
+*.dsc
+*.tar.gz
+*.tar.xz
+*.tar.bz2
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+nginx-patched-build/docs/CVE-SCANNING-WORKFLOW.md
