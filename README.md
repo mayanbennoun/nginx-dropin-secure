@@ -160,7 +160,7 @@ These are the only scanner-visible residuals that have a fix available (i.e. not
 | CVE-2026-33845, CVE-2026-42010 (Critical); CVE-2026-42009 / 42011 / 42012 / 42013 / 5260 / 3833 / 33846 (High) | libgnutls30 | Critical | `3.7.9-2+deb12u6` → `3.7.9-2+deb12u7` | Pin `libgnutls30=3.7.9-2+deb12u7` in the Containerfile; clears 2 Critical + 7 High in one upgrade. |
 | CVE-2026-41989 | libgcrypt20 | Medium | `1.10.1-3` → `1.10.1-3+deb12u1` | Pin `libgcrypt20=1.10.1-3+deb12u1` in the Containerfile. |
 
-**Overall posture:** The two highest-priority KEV items (CVE-2025-27363) and the critical nginx-specific vulnerability (CVE-2026-9256) are remediated. The remaining high/critical items are in libraries that nginx loads transitionally but does not exercise in a default configuration. None of the remaining "won't fix" items have a CVSS exploit chain that passes through the nginx HTTP request path.
+**Overall posture:** The two highest-priority KEV items (CVE-2025-27363) and the critical nginx-specific vulnerability (CVE-2026-9256) are remediated. The remaining high/critical items are in libraries that nginx loads transitively but does not exercise in a default configuration. None of the remaining "won't fix" items have a CVSS exploit chain that passes through the nginx HTTP request path.
 
 ---
 
@@ -170,41 +170,19 @@ These are the only scanner-visible residuals that have a fix available (i.e. not
 
 **1. CVE-2023-44487 is a false positive.** The HTTP/2 Rapid Reset fix shipped in nginx 1.25.3 — eight months before 1.25.5. The Debian packaging team never issued a DSA because the upstream package already contained the fix. Every scanner that keys on Debian package metadata will flag it indefinitely. This is the strongest argument for building from source: the compiled binary is clean even though the package metadata is not.
 
-**3. The scanner cannot distinguish patched binaries from unpatched ones.** After backporting CVE-2026-9256, Grype still flags the nginx package because version `1.25.5-1~bookworm` matches its vulnerability database. VEX exists precisely for this — it is the standard way to assert "yes the scanner sees this, but here is why the binary is safe."
+**2. The scanner cannot distinguish patched binaries from unpatched ones.** After backporting CVE-2026-9256, Grype still flags the nginx package because version `1.25.5-1~bookworm` matches its vulnerability database. VEX exists precisely for this — it is the standard way to assert "yes the scanner sees this, but here is why the binary is safe."
 
-**4. once I update the ssl package I saw that more cve's than anticpted were solved my intial plan was just to solve cve-2024-6119
-        Package,CVE,Severity
-        libssl3 / openssl,CVE-2024-5535,Critical
-        libssl3 / openssl,CVE-2026-31789,Critical
-        libssl3 / openssl,CVE-2024-4741,High
-        libssl3 / openssl,CVE-2024-6119,High
-        libssl3 / openssl,CVE-2025-15467,High
-        libssl3 / openssl,CVE-2025-69419,High
-        libssl3 / openssl,CVE-2025-69420,High
-        libssl3 / openssl,CVE-2025-69421,High
-        libssl3 / openssl,CVE-2025-9230,High
-        libssl3 / openssl,CVE-2026-28387,High
-        libssl3 / openssl,CVE-2026-28388,High
-        libssl3 / openssl,CVE-2026-28389,High
-        libssl3 / openssl,CVE-2026-28390,High
-        libssl3 / openssl,CVE-2026-31790,High
-        libssl3 / openssl,CVE-2023-5678,Medium
-        libssl3 / openssl,CVE-2023-6129,Medium
-        libssl3 / openssl,CVE-2023-6237,Medium
-        libssl3 / openssl,CVE-2024-0727,Medium
-        libssl3 / openssl,CVE-2024-13176,Medium
-        libssl3 / openssl,CVE-2024-2511,Medium
-        libssl3 / openssl,CVE-2024-4603,Medium
-        libssl3 / openssl,CVE-2024-9143,Medium
-        libssl3 / openssl,CVE-2025-68160,Medium
-        libssl3 / openssl,CVE-2025-69418,Medium
-        libssl3 / openssl,CVE-2025-9232,Medium
-        libssl3 / openssl,CVE-2026-22795,Medium
-        libssl3 / openssl,CVE-2026-22796,Medium
+**3. A single OpenSSL bump cleared far more CVEs than anticipated.** My initial plan was only to resolve CVE-2024-6119, but forcing the hardened `libssl3` floor cleared 27 `libssl3`/openssl CVEs in one move (2 Critical, 12 High, 13 Medium):
+
+| Severity | CVEs |
+|---|---|
+| Critical | CVE-2024-5535, CVE-2026-31789 |
+| High | CVE-2024-4741, CVE-2024-6119, CVE-2025-15467, CVE-2025-69419, CVE-2025-69420, CVE-2025-69421, CVE-2025-9230, CVE-2026-28387, CVE-2026-28388, CVE-2026-28389, CVE-2026-28390, CVE-2026-31790 |
+| Medium | CVE-2023-5678, CVE-2023-6129, CVE-2023-6237, CVE-2024-0727, CVE-2024-13176, CVE-2024-2511, CVE-2024-4603, CVE-2024-9143, CVE-2025-68160, CVE-2025-69418, CVE-2025-9232, CVE-2026-22795, CVE-2026-22796 |
 
 ### What I'd do differently with more time
 - **Pin explicit package versions** for all libssl3, libexpat1, and libkrb5 in the Containerfile RUN layer, rather than relying on whatever `apt-get` resolves to at build time. This makes the image reproducible and the fix traceable.
-- I would generate a flow to automte this process, detect avilable version bumps, released patches and automating the container patching process
+- I would generate a flow to automate this process: detect available version bumps and released patches, and automate the container patching pipeline.
 
 ---
 
@@ -220,6 +198,6 @@ Claude Code was used throughout this project as a pair-programmer and security a
 | **Containerfile** | Adapted the official nginx Dockerfile to install from the locally-built `.deb` instead of the upstream repo, and added the `dpkg -i --force-overwrite` step to replace the official binary with the patched one after dependency resolution. |
 | **vex.json** | Generated the OpenVEX document for CVE-2026-9256 with the correct `inline_mitigation_already_exist` justification and the commit-level action statement. |
 
-Gemini was used as a tool for brainstorming, understanding task scoope and specifics, and also as explantory tool to clarify the cve's and remidiation for it.
+Gemini was used as a tool for brainstorming, understanding task scope and specifics, and also as an explanatory tool to clarify the CVEs and their remediation.
 
-I felt AI assited in helping me to review cve data, easily offer candiates for cve to focus on verify, debug docker image build bugs, but when trying to offer the docker image built he tried to over simplfy and remove core features. 
+I felt AI assisted in reviewing CVE data, surfacing candidate CVEs to focus on and verify, and debugging Docker image build bugs — but when generating the Docker image build it tended to over-simplify and strip out core features. 
