@@ -29,7 +29,6 @@ nginx-patched-build/
 │   ├── baseline/
 │   │   ├── baseline-grype.txt      # Grype scan of nginx:1.25-bookworm
 │   │   ├── baseline-trivy.txt      # Trivy scan of nginx:1.25-bookworm
-│   │   └── triage-hypothesis.md    # CVE selection rationale and analysis
 │   └── patched/
 │       ├── patched-grype.txt       # Grype scan of nginx-patched:1.25.5
 │       └── patched-trivy.txt       # Trivy scan of nginx-patched:1.25.5
@@ -126,7 +125,6 @@ The patched image is ~1 MB larger than the baseline — a negligible overhead fo
 | **CVE-2026-9256** | Critical | 0.2% | nginx 1.25.5 | Backport | Cherry-picked nginx mainline commit `ca4f92a` (Roman Arutyunyan) which fixes `ngx_http_script_regex_start_code()` to iterate per-capture when computing escape overhead, eliminating the under-allocation that caused the heap overflow. Patch applied to source before `.deb` compilation. | `build/patches/CVE-2026-9256.patch`, `vex.json` |
 | **CVE-2024-6119** | High | 14.6% | libssl3 / openssl | Version bump | Injected an explicit `libssl3 (>= 3.0.14)` floor into the nginx `.deb` control file during `Dockerfile.build`. This forces `dpkg` to refuse installation unless a fixed OpenSSL is present. At runtime `apt-get` installs `libssl3 3.0.20-1~deb12u1`, which exceeds the fix threshold. | `build/Dockerfile.build` line 45, `reports/patched/patched-grype.txt` (openssl version `3.0.20`) |
 | **CVE-2025-27363** | High (KEV) | 70.8% | libfreetype6 | Version bump | libfreetype6 is resolved at `2.12.1+dfsg-5+deb12u4` in the patched image (above the `+deb12u4` fix threshold). The package is absent from the patched scanner output, confirming remediation. This was the highest-risk CVE in the baseline scan (risk score 81.9, actively exploited). | `reports/patched/patched-grype.txt` (libfreetype6 not present), `reports/baseline/baseline-grype.txt` line 2 |
-| **CVE-2023-44487** | High (KEV) | 94.4% | nginx (HTTP/2 Rapid Reset) | Not affected | The fix shipped in nginx **1.25.3** (October 2023). Since we build from the upstream 1.25.5 source tarball, the binary is unaffected. The scanner flags the Debian package because no DSA was issued — the Debian packaging team did not backport what was already in the upstream mainline. Documented in `vex.json` (see note below). | `reports/baseline/triage-hypothesis.md` §CVE-2023-44487, nginx changelog 1.25.3 |
 
 > **Disclaimer (CVE-2023-44487):** This is a scanner false positive — the HTTP/2 Rapid Reset fix shipped in nginx 1.25.3, so the 1.25.5 binary we compile is not affected. The alert persists only because the Debian package metadata never received a DSA.
 
@@ -162,7 +160,7 @@ These are the only scanner-visible residuals that have a fix available (i.e. not
 | CVE-2026-33845, CVE-2026-42010 (Critical); CVE-2026-42009 / 42011 / 42012 / 42013 / 5260 / 3833 / 33846 (High) | libgnutls30 | Critical | `3.7.9-2+deb12u6` → `3.7.9-2+deb12u7` | Pin `libgnutls30=3.7.9-2+deb12u7` in the Containerfile; clears 2 Critical + 7 High in one upgrade. |
 | CVE-2026-41989 | libgcrypt20 | Medium | `1.10.1-3` → `1.10.1-3+deb12u1` | Pin `libgcrypt20=1.10.1-3+deb12u1` in the Containerfile. |
 
-**Overall posture:** The two highest-priority KEV items (CVE-2025-27363 and CVE-2023-44487) and the critical nginx-specific vulnerability (CVE-2026-9256) are remediated. The remaining high/critical items are in libraries that nginx loads transitionally but does not exercise in a default configuration. None of the remaining "won't fix" items have a CVSS exploit chain that passes through the nginx HTTP request path.
+**Overall posture:** The two highest-priority KEV items (CVE-2025-27363) and the critical nginx-specific vulnerability (CVE-2026-9256) are remediated. The remaining high/critical items are in libraries that nginx loads transitionally but does not exercise in a default configuration. None of the remaining "won't fix" items have a CVSS exploit chain that passes through the nginx HTTP request path.
 
 ---
 
@@ -170,17 +168,42 @@ These are the only scanner-visible residuals that have a fix available (i.e. not
 
 ### Surprises
 
-**1. `hg.nginx.org` is gone.** `nginx/pkg-oss 1.25.5-1` fetches the `xslscript` tool from the old nginx Mercurial archive. That host no longer serves downloads. The build broke silently until tracing the `wget` failure. Fix: replicated the same commit from the `freenginx.org` Mercurial mirror with a SHA-512 integrity check baked into `Dockerfile.build`.
+**1. CVE-2023-44487 is a false positive.** The HTTP/2 Rapid Reset fix shipped in nginx 1.25.3 — eight months before 1.25.5. The Debian packaging team never issued a DSA because the upstream package already contained the fix. Every scanner that keys on Debian package metadata will flag it indefinitely. This is the strongest argument for building from source: the compiled binary is clean even though the package metadata is not.
 
-**2. CVE-2023-44487 is a false positive.** The HTTP/2 Rapid Reset fix shipped in nginx 1.25.3 — eight months before 1.25.5. The Debian packaging team never issued a DSA because the upstream package already contained the fix. Every scanner that keys on Debian package metadata will flag it indefinitely. This is the strongest argument for building from source: the compiled binary is clean even though the package metadata is not.
+**3. The scanner cannot distinguish patched binaries from unpatched ones.** After backporting CVE-2026-9256, Grype still flags the nginx package because version `1.25.5-1~bookworm` matches its vulnerability database. VEX exists precisely for this — it is the standard way to assert "yes the scanner sees this, but here is why the binary is safe."
 
-**3. The scanner cannot distinguish patched binaries from unpatched ones.** After backporting CVE-2026-9256, Grype still flags the nginx package because version `1.25.5-1~bookworm` matches its vulnerability database. VEX exists precisely for this — it is the standard way to assert "yes the scanner sees this, but here is why the binary is safe." The VEX tooling ecosystem is still immature and there is no widely-supported way to embed VEX attestations directly into the OCI image manifest for automatic scanner consumption.
-
-**4. `apt-get install libssl3` in Containerfile silently upgrades everything.** The OpenSSL floor in the `.deb` Depends field acts as a safety net, but at build time `apt-get` already resolves to `3.0.20`, which is well past the fix threshold. The Depends floor would only matter if someone tried to install the `.deb` on a system with the old libssl3.
+**4. once I update the ssl package I saw that more cve's than anticpted were solved my intial plan was just to solve cve-2024-6119
+        Package,CVE,Severity
+        libssl3 / openssl,CVE-2024-5535,Critical
+        libssl3 / openssl,CVE-2026-31789,Critical
+        libssl3 / openssl,CVE-2024-4741,High
+        libssl3 / openssl,CVE-2024-6119,High
+        libssl3 / openssl,CVE-2025-15467,High
+        libssl3 / openssl,CVE-2025-69419,High
+        libssl3 / openssl,CVE-2025-69420,High
+        libssl3 / openssl,CVE-2025-69421,High
+        libssl3 / openssl,CVE-2025-9230,High
+        libssl3 / openssl,CVE-2026-28387,High
+        libssl3 / openssl,CVE-2026-28388,High
+        libssl3 / openssl,CVE-2026-28389,High
+        libssl3 / openssl,CVE-2026-28390,High
+        libssl3 / openssl,CVE-2026-31790,High
+        libssl3 / openssl,CVE-2023-5678,Medium
+        libssl3 / openssl,CVE-2023-6129,Medium
+        libssl3 / openssl,CVE-2023-6237,Medium
+        libssl3 / openssl,CVE-2024-0727,Medium
+        libssl3 / openssl,CVE-2024-13176,Medium
+        libssl3 / openssl,CVE-2024-2511,Medium
+        libssl3 / openssl,CVE-2024-4603,Medium
+        libssl3 / openssl,CVE-2024-9143,Medium
+        libssl3 / openssl,CVE-2025-68160,Medium
+        libssl3 / openssl,CVE-2025-69418,Medium
+        libssl3 / openssl,CVE-2025-9232,Medium
+        libssl3 / openssl,CVE-2026-22795,Medium
+        libssl3 / openssl,CVE-2026-22796,Medium
 
 ### What I'd do differently with more time
 - **Pin explicit package versions** for all libssl3, libexpat1, and libkrb5 in the Containerfile RUN layer, rather than relying on whatever `apt-get` resolves to at build time. This makes the image reproducible and the fix traceable.
-- **Add a SBOM export step** (`syft nginx-patched:1.25.5 -o spdx-json > sbom.json`) to the Makefile so a full software bill of materials is generated alongside the scan reports.
 - I would generate a flow to automte this process, detect avilable version bumps, released patches and automating the container patching process
 
 ---
@@ -198,3 +221,5 @@ Claude Code was used throughout this project as a pair-programmer and security a
 | **vex.json** | Generated the OpenVEX document for CVE-2026-9256 with the correct `inline_mitigation_already_exist` justification and the commit-level action statement. |
 
 Gemini was used as a tool for brainstorming, understanding task scoope and specifics, and also as explantory tool to clarify the cve's and remidiation for it.
+
+I felt AI assited in helping me to review cve data, easily offer candiates for cve to focus on verify, debug docker image build bugs, but when trying to offer the docker image built he tried to over simplfy and remove core features. 
