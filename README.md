@@ -112,7 +112,7 @@ The test suite starts both `nginx:1.25-bookworm` (baseline) and `nginx-patched:1
 | Image | Uncompressed size | Notes |
 |---|---|---|
 | `nginx:1.25-bookworm` (baseline) | 187 MB | Official image, Debian Bookworm |
-| `nginx-patched:1.25.5` | 188 MB | `debian:bookworm-slim` + patched nginx .deb + gettext-base + curl |
+| `nginx-patched:1.25.5` | 188 MB | `debian:bookworm-slim` + patched nginx .deb |
 
 The patched image is ~1 MB larger than the baseline — a negligible overhead for a security-hardened build. Sizes measured via `docker inspect --format '{{.Size}}'`.
 
